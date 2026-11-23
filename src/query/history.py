@@ -13,6 +13,7 @@ from src.partitions.catalog import resolve_segment
 from src.partitions.layout import read_segment
 from src.publish.database import read_transaction
 from src.publish.receipts import resolve_result_receipt, result_for_version
+from src.publish.retention import ReclaimedResultError, result_is_reclaimed
 
 from .reconcile import ReconciliationError, verify_query_evidence, verify_reconciliation
 
@@ -39,6 +40,7 @@ class QueryResult:
 def _evidence(db, snapshot, entries):
     segment_cache = {}
     result_cache = {}
+    effects = {item.event.key: item for item in snapshot.effects}
 
     def locate(segment_id):
         if segment_id not in segment_cache:
@@ -47,8 +49,8 @@ def _evidence(db, snapshot, entries):
         return segment_cache[segment_id]
 
     evidence = []
-    for entry, effect in zip(entries, snapshot.effects, strict=True):
-        key = entry.raw.identity.key
+    for entry in entries:
+        key = entry.identity.key
         location = resolve_segment(db, key)
         active, live_members = locate(location.active)
         _, original_members = locate(location.original)
@@ -61,7 +63,11 @@ def _evidence(db, snapshot, entries):
             result_id, _ = result_for_version(db, entry.accepted_version)
             resolve_result_receipt(db, result_id)
             result_cache[entry.accepted_version] = result_id
-        evidence.append(EventEvidence(entry.raw, entry.revision, effect,
+        if entry.reclaimed:
+            # The current ledger may omit the removed historical body; keep the
+            # origin segment number so the provenance trail stays readable.
+            continue
+        evidence.append(EventEvidence(entry.raw, entry.revision, effects[key],
                                       result_cache[entry.accepted_version], location.original))
     return tuple(evidence)
 
@@ -79,10 +85,17 @@ def query_scope(start, end, entities):
     return includes
 
 
-def read_result(db, result_id, includes):
+def read_result(db, result_id, includes, *, allow_reclaimed=False):
     receipt = resolve_result_receipt(db, result_id)
+    if result_is_reclaimed(db, result_id):
+        if not allow_reclaimed:
+            raise ReclaimedResultError(f'originals for result {result_id!r} have been reclaimed')
     snapshot = load_snapshot(db, receipt.version)
     entries = load_raw_events(db, snapshot.members)
+    if not allow_reclaimed and any(entry.reclaimed for entry in entries):
+        reclaimed_key = next(entry.identity.key for entry in entries if entry.reclaimed)
+        raise ReconciliationError(
+            f'historical result {result_id!r} lost original evidence for {reclaimed_key}')
     verify_query_evidence(snapshot, entries)
     evidence = _evidence(db, snapshot, entries)
     contributions = load_contributions(db, snapshot.version)
@@ -92,7 +105,8 @@ def read_result(db, result_id, includes):
     return QueryResult(result_id, snapshot.version,
                        tuple(fact for fact in snapshot.facts if includes(fact.entity, fact.day)),
                        selected, build_daily_totals(snapshot.version, selected),
-                       tuple(item for item in evidence if includes(item.original.identity.entity, item.original.day)))
+                       tuple(item for item in evidence
+                             if includes(item.original.identity.entity, item.original.day)))
 
 
 def query_history(db, result_id, *, start=None, end=None, entities=None):

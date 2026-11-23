@@ -1,6 +1,7 @@
 from src.aggregate.daily import build_daily_totals
 from src.facts.replay import compare_snapshot_facts, replay_events
 from src.intake.normalize import FieldIntent
+from src.intake.raw_store import entry_identity
 
 
 class ReconciliationError(ValueError):
@@ -22,7 +23,7 @@ def verify_reconciliation(snapshot, contributions, totals):
 
 
 def verify_query_evidence(snapshot, entries):
-    keys = tuple(entry.raw.identity.key for entry in entries)
+    keys = tuple(entry_identity(entry).key for entry in entries)
     if keys != snapshot.members or any(entry.accepted_version > snapshot.version for entry in entries):
         raise ReconciliationError('event evidence does not belong to this snapshot')
     rebuilt = replay_events((entry.revision for entry in entries), snapshot.version,

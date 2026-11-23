@@ -10,4 +10,4 @@ def query_current(db, *, start=None, end=None, entities=None):
         result_id = load_current_result(db)
         if result_id is None:
             return None
-        return read_result(db, result_id, includes)
+        return read_result(db, result_id, includes, allow_reclaimed=True)

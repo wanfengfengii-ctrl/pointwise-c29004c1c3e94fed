@@ -100,3 +100,9 @@ def publish_replacement(db, expected, replacements):
             db.execute('UPDATE event_locations SET active_segment = ? WHERE active_segment = ?', (new.segment_id, old_id))
             db.execute('INSERT INTO catalog_replacements VALUES (?, ?, ?)', (old_id, new.segment_id, version))
     return version
+
+
+def publish_reclamation(db, expected):
+    # Bodies change while segment locations and ordering stay intact; the catalog
+    # still advances so callers can detect the reclaimed generation.
+    return _advance(db, expected)

@@ -13,7 +13,8 @@ from src.query.history import query_history
 
 from .coordinator import publish_batch, publish_compaction
 from .database import initialize_database, open_database, read_transaction
-from .receipts import find_request_receipt
+from .receipts import find_request_receipt, load_current_result
+from .retention import reclaim
 from .rollback import recover_incomplete_attempts
 
 
@@ -91,6 +92,11 @@ def _parser():
     compact.add_argument('start')
     compact.add_argument('end')
     compact.add_argument('source_version', type=int)
+    reclaimed = commands.add_parser('reclaim')
+    reclaimed.add_argument('db')
+    reclaimed.add_argument('request_id')
+    reclaimed.add_argument('version', type=int)
+    reclaimed.add_argument('result', nargs='+')
     commands.add_parser('demo').add_argument('sample')
     return parser
 
@@ -113,6 +119,8 @@ def _dispatch(db, args):
         return publish_batch(db, args.request_id, _load(args.batch))
     if args.command == 'compact':
         return publish_compaction(db, args.request_id, args.start, args.end, args.source_version)
+    if args.command == 'reclaim':
+        return reclaim(db, args.request_id, args.result, args.version)
     scope = dict(start=args.start, end=args.end, entities=args.entities)
     if args.command == 'history':
         return query_history(db, args.result_id, **scope)

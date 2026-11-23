@@ -5,7 +5,7 @@ from src.aggregate.daily import build_daily_totals, load_contributions, load_dai
 from src.facts.replay import compare_snapshot_facts, replay_events
 from src.facts.snapshot import load_snapshot, save_snapshot
 from src.intake.accept import accept_batch, unique_events
-from src.intake.raw_store import load_raw_events
+from src.intake.raw_store import entry_identity, load_raw_events
 from src.intake.validation import validate_batch, validate_day, validate_range
 from src.partitions.catalog import load_catalog, publish_partition_update, publish_replacement, read_active_segments
 from src.partitions.compact import plan_compaction, stage_replacement
@@ -62,7 +62,7 @@ def _published_inputs(db, current, catalog):
         raise ValueError('catalog membership differs from the current snapshot')
     entries = load_raw_events(db, expected)
     for entry in entries:
-        key = entry.raw.identity.key
+        key = entry_identity(entry).key
         member = members[key]
         if member.raw_ref != key or member.revision != entry.revision:
             raise ValueError(f'active segment differs from the original event {key}')
@@ -78,7 +78,7 @@ def _event_receipts(db, entries):
         if entry.accepted_version not in by_version:
             by_version[entry.accepted_version] = result_for_version(db, entry.accepted_version)
         result_id, request_id = by_version[entry.accepted_version]
-        receipts.append(EventReceipt(entry.raw.identity, result_id, request_id))
+        receipts.append(EventReceipt(entry_identity(entry), result_id, request_id))
     return receipts
 
 

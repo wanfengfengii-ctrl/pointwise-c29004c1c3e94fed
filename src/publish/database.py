@@ -9,6 +9,7 @@ from src.partitions.layout import initialize_segments
 
 from .attempts import initialize_attempts
 from .receipts import initialize_receipts
+from .retention import initialize_retention
 from .rollback import publication_transaction
 
 
@@ -31,6 +32,7 @@ def initialize_database(db):
         initialize_daily_store(db)
         initialize_attempts(db)
         initialize_receipts(db)
+        initialize_retention(db)
 
 
 @contextmanager
