@@ -1,0 +1,19 @@
+{
+  "day": "2026-04-12",
+  "batches": [
+    {"request_id":"first", "events":[
+      {"event_id":"weigh-a","entity":"E","field":"A","source":"scale-am","seq":1,"day":"2026-04-12","payload":"{\"A\":12}"}
+    ]},
+    {"request_id":"zero", "events":[
+      {"event_id":"weigh-zero","entity":"E","field":"A","source":"scale-am","seq":2,"day":"2026-04-12","payload":"{\"B\":0}"},
+      {"event_id":"weigh-zero","entity":"E","field":"B","source":"scale-am","seq":2,"day":"2026-04-12","payload":"{\"B\":0}"}
+    ]},
+    {"request_id":"correct", "events":[
+      {"event_id":"clear-a","entity":"E","field":"A","source":"qc-am","seq":4,"day":"2026-04-12","payload":"{\"A\":null}"},
+      {"event_id":"set-b","entity":"E","field":"B","source":"qc-am","seq":5,"day":"2026-04-12","payload":"{\"B\":5}"}
+    ]},
+    {"request_id":"resend", "events":[
+      {"event_id":"late-a","entity":"E","field":"A","source":"scale-am","seq":3,"day":"2026-04-12","payload":"{\"A\":9}"}
+    ]}
+  ]
+}
